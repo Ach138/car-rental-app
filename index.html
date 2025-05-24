@@ -2,11 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Car Rental with Spreadsheet Accounts</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Car Rental Single Page App</title>
 <style>
   body { font-family: Arial, sans-serif; max-width: 700px; margin: 20px auto; background: #f7f7f7; padding: 20px; }
   h1, h2 { text-align: center; }
-  #loginSection, #carForm, #carList { background: white; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+  #appContainer { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);}
   input, button { width: 100%; padding: 10px; margin: 8px 0; font-size: 1em; }
   button { cursor: pointer; }
   .car-card { border: 1px solid #ddd; background: #fff; border-radius: 6px; padding: 15px; margin-bottom: 15px; }
@@ -14,36 +15,42 @@
   .btn { padding: 6px 12px; margin: 0 5px 5px 0; border: none; border-radius: 4px; cursor: pointer; }
   .btn-edit { background-color: #007bff; color: white; }
   .btn-delete { background-color: #dc3545; color: white; }
+  #logoutBtn { margin-top: 10px; background: #dc3545; color: white; border: none; border-radius: 6px; }
+  #loginMsg { color: red; height: 20px; }
+  #cancelEditBtn { margin-top: 5px; background: #6c757d; color: white; border: none; border-radius: 6px; }
 </style>
 </head>
 <body>
 
-<h1>Car Rental App with Spreadsheet Accounts</h1>
+<div id="appContainer">
 
-<div id="loginSection">
-  <h2>Login</h2>
-  <input type="email" id="email" placeholder="Email" required />
-  <input type="password" id="password" placeholder="Password" required />
-  <button id="loginBtn">Log In</button>
-  <p id="loginMsg" style="color:red;"></p>
+  <h1>Car Rental App</h1>
+
+  <div id="loginSection">
+    <h2>Login</h2>
+    <input type="email" id="email" placeholder="Email" required />
+    <input type="password" id="password" placeholder="Password" required />
+    <button id="loginBtn">Log In</button>
+    <p id="loginMsg"></p>
+  </div>
+
+  <div id="userInfo" style="display:none; text-align:center;">
+    <p>Logged in as: <span id="userEmail"></span></p>
+    <button id="logoutBtn">Log Out</button>
+  </div>
+
+  <form id="carForm" style="display:none;">
+    <h2>Add / Edit Car</h2>
+    <input type="hidden" id="carId" />
+    <input type="text" id="model" placeholder="Car Model" required />
+    <input type="number" id="price" placeholder="Price per day" required />
+    <input type="url" id="image" placeholder="Image URL" required />
+    <button type="submit">Add Car</button>
+    <button type="button" id="cancelEditBtn" style="display:none;">Cancel Edit</button>
+  </form>
+
+  <div id="carList"></div>
 </div>
-
-<div id="userInfo" style="display:none; text-align:center;">
-  <p>Logged in as: <span id="userEmail"></span></p>
-  <button id="logoutBtn">Log Out</button>
-</div>
-
-<form id="carForm" style="display:none;">
-  <h2>Add / Edit Car</h2>
-  <input type="hidden" id="carId" />
-  <input type="text" id="model" placeholder="Car Model" required />
-  <input type="number" id="price" placeholder="Price per day" required />
-  <input type="url" id="image" placeholder="Image URL" required />
-  <button type="submit">Add Car</button>
-  <button type="button" id="cancelEditBtn" style="display:none;">Cancel Edit</button>
-</form>
-
-<div id="carList"></div>
 
 <script>
   const USERS_API = "https://sheetdb.io/api/v1/s1mx8f0pllgs5";
@@ -156,7 +163,6 @@
         <p>Price: $${car.Price}/day</p>
       `;
 
-      // Show edit/delete buttons only if logged-in user is owner
       if (car.OwnerEmail && car.OwnerEmail.toLowerCase() === loggedInEmail.toLowerCase()) {
         const editBtn = document.createElement("button");
         editBtn.textContent = "Edit";
@@ -190,7 +196,6 @@
     const carId = carIdInput.value;
     if (carId) {
       // EDIT car
-      // Find the car to edit
       const carToEdit = carsData.find(c => c.id === carId);
       if (!carToEdit) {
         alert("Car not found");
@@ -200,7 +205,6 @@
         alert("You can only edit your own cars");
         return;
       }
-      // SheetDB update via PUT to /id/{carId}
       try {
         await fetch(`${CARS_API}/id/${carId}`, {
           method: "PUT",
@@ -215,7 +219,7 @@
         console.error(e);
       }
     } else {
-      // ADD new car (POST)
+      // ADD new car
       try {
         await fetch(CARS_API, {
           method: "POST",
