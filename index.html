@@ -1,140 +1,274 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Car Rental App with Edit/Delete</title>
-  <style>
-    /* Keep your previous styles */
-    body { font-family: Arial, sans-serif; background: #f4f4f4; padding: 20px; }
-    h1 { text-align: center; }
-    form { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 30px; max-width: 500px; margin: 0 auto 30px; }
-    input { display: block; width: 100%; margin-top: 10px; padding: 10px; font-size: 1em; }
-    button { margin-top: 15px; padding: 10px; font-size: 1em; background: #28a745; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
-    .car-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; }
-    .car-card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); text-align: center; }
-    .car-card img { max-width: 100%; height: 150px; object-fit: cover; margin-bottom: 10px; border-radius: 4px; }
-    .btn-edit, .btn-delete {
-      padding: 5px 10px;
-      margin: 5px 3px 0 3px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 0.9em;
-    }
-    .btn-edit { background-color: #007bff; color: white; }
-    .btn-delete { background-color: #dc3545; color: white; }
-  </style>
+<meta charset="UTF-8" />
+<title>Car Rental with Spreadsheet Accounts</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 700px; margin: 20px auto; background: #f7f7f7; padding: 20px; }
+  h1, h2 { text-align: center; }
+  #loginSection, #carForm, #carList { background: white; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+  input, button { width: 100%; padding: 10px; margin: 8px 0; font-size: 1em; }
+  button { cursor: pointer; }
+  .car-card { border: 1px solid #ddd; background: #fff; border-radius: 6px; padding: 15px; margin-bottom: 15px; }
+  .car-card img { max-width: 100%; height: 150px; object-fit: cover; border-radius: 6px; }
+  .btn { padding: 6px 12px; margin: 0 5px 5px 0; border: none; border-radius: 4px; cursor: pointer; }
+  .btn-edit { background-color: #007bff; color: white; }
+  .btn-delete { background-color: #dc3545; color: white; }
+</style>
 </head>
 <body>
 
-  <h1>Car Rental App with Edit/Delete</h1>
+<h1>Car Rental App with Spreadsheet Accounts</h1>
 
-  <form id="carForm">
-    <input type="hidden" id="carId" />
-    <input type="text" id="model" placeholder="Car Model" required />
-    <input type="number" id="price" placeholder="Price per day" required />
-    <input type="url" id="image" placeholder="Image URL" required />
-    <button type="submit">Add Car</button>
-    <button type="button" id="cancelEdit" style="display:none; margin-top:10px;">Cancel Edit</button>
-  </form>
+<div id="loginSection">
+  <h2>Login</h2>
+  <input type="email" id="email" placeholder="Email" required />
+  <input type="password" id="password" placeholder="Password" required />
+  <button id="loginBtn">Log In</button>
+  <p id="loginMsg" style="color:red;"></p>
+</div>
 
-  <div class="car-list" id="carList"></div>
+<div id="userInfo" style="display:none; text-align:center;">
+  <p>Logged in as: <span id="userEmail"></span></p>
+  <button id="logoutBtn">Log Out</button>
+</div>
+
+<form id="carForm" style="display:none;">
+  <h2>Add / Edit Car</h2>
+  <input type="hidden" id="carId" />
+  <input type="text" id="model" placeholder="Car Model" required />
+  <input type="number" id="price" placeholder="Price per day" required />
+  <input type="url" id="image" placeholder="Image URL" required />
+  <button type="submit">Add Car</button>
+  <button type="button" id="cancelEditBtn" style="display:none;">Cancel Edit</button>
+</form>
+
+<div id="carList"></div>
 
 <script>
-  const API_URL = "https://sheetdb.io/api/v1/tncy860v09njn";
-  const carForm = document.getElementById("carForm");
-  const carList = document.getElementById("carList");
-  const cancelEditBtn = document.getElementById("cancelEdit");
+  const USERS_API = "https://sheetdb.io/api/v1/s1mx8f0pllgs5";
+  const CARS_API = "https://sheetdb.io/api/v1/sdqzpv809w7z4";
 
-  // Load and display cars
-  async function loadCars() {
-    const res = await fetch(API_URL);
-    const cars = await res.json();
+  const loginSection = document.getElementById("loginSection");
+  const loginBtn = document.getElementById("loginBtn");
+  const loginMsg = document.getElementById("loginMsg");
+  const emailInput = document.getElementById("email");
+  const passwordInput = document.getElementById("password");
+
+  const userInfo = document.getElementById("userInfo");
+  const userEmailSpan = document.getElementById("userEmail");
+  const logoutBtn = document.getElementById("logoutBtn");
+
+  const carForm = document.getElementById("carForm");
+  const carIdInput = document.getElementById("carId");
+  const modelInput = document.getElementById("model");
+  const priceInput = document.getElementById("price");
+  const imageInput = document.getElementById("image");
+  const cancelEditBtn = document.getElementById("cancelEditBtn");
+
+  const carList = document.getElementById("carList");
+
+  let loggedInEmail = null;
+  let carsData = [];
+
+  // Login function
+  loginBtn.addEventListener("click", async () => {
+    loginMsg.textContent = "";
+    const email = emailInput.value.trim();
+    const password = passwordInput.value.trim();
+    if (!email || !password) {
+      loginMsg.textContent = "Enter email and password";
+      return;
+    }
+
+    try {
+      const res = await fetch(USERS_API);
+      const users = await res.json();
+      const user = users.find(u => u.Email.toLowerCase() === email.toLowerCase() && u.Password === password);
+      if (user) {
+        loggedInEmail = user.Email;
+        localStorage.setItem("loggedInEmail", loggedInEmail);
+        setupLoggedIn();
+      } else {
+        loginMsg.textContent = "Invalid email or password";
+      }
+    } catch (e) {
+      loginMsg.textContent = "Error connecting to user database";
+      console.error(e);
+    }
+  });
+
+  // Setup logged-in UI
+  function setupLoggedIn() {
+    loginSection.style.display = "none";
+    userInfo.style.display = "block";
+    carForm.style.display = "block";
+    userEmailSpan.textContent = loggedInEmail;
+    loadCars();
+  }
+
+  // Logout function
+  logoutBtn.addEventListener("click", () => {
+    loggedInEmail = null;
+    localStorage.removeItem("loggedInEmail");
+    loginSection.style.display = "block";
+    userInfo.style.display = "none";
+    carForm.style.display = "none";
     carList.innerHTML = "";
-    cars.forEach(car => {
+    emailInput.value = "";
+    passwordInput.value = "";
+  });
+
+  // On page load, check login status
+  window.onload = () => {
+    const savedEmail = localStorage.getItem("loggedInEmail");
+    if (savedEmail) {
+      loggedInEmail = savedEmail;
+      setupLoggedIn();
+    }
+  };
+
+  // Load cars from cars sheet
+  async function loadCars() {
+    try {
+      const res = await fetch(CARS_API);
+      carsData = await res.json();
+      renderCars();
+    } catch (e) {
+      carList.innerHTML = "<p>Error loading cars</p>";
+      console.error(e);
+    }
+  }
+
+  // Render cars with edit/delete only for owner
+  function renderCars() {
+    carList.innerHTML = "";
+    if (carsData.length === 0) {
+      carList.innerHTML = "<p>No cars available.</p>";
+      return;
+    }
+    carsData.forEach(car => {
       const card = document.createElement("div");
       card.className = "car-card";
       card.innerHTML = `
         <img src="${car.ImageURL}" alt="${car.Model}" />
         <h3>${car.Model}</h3>
         <p>Price: $${car.Price}/day</p>
-        <button class="btn-edit" data-id="${car.id}">Edit</button>
-        <button class="btn-delete" data-id="${car.id}">Delete</button>
       `;
+
+      // Show edit/delete buttons only if logged-in user is owner
+      if (car.OwnerEmail && car.OwnerEmail.toLowerCase() === loggedInEmail.toLowerCase()) {
+        const editBtn = document.createElement("button");
+        editBtn.textContent = "Edit";
+        editBtn.className = "btn btn-edit";
+        editBtn.onclick = () => startEditCar(car);
+        card.appendChild(editBtn);
+
+        const delBtn = document.createElement("button");
+        delBtn.textContent = "Delete";
+        delBtn.className = "btn btn-delete";
+        delBtn.onclick = () => deleteCar(car);
+        card.appendChild(delBtn);
+      }
+
       carList.appendChild(card);
     });
   }
 
-  // Add new car or update existing
+  // Add / Edit car form submit
   carForm.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const id = document.getElementById("carId").value;
-    const model = document.getElementById("model").value;
-    const price = document.getElementById("price").value;
-    const image = document.getElementById("image").value;
+    const model = modelInput.value.trim();
+    const price = priceInput.value.trim();
+    const image = imageInput.value.trim();
 
-    if (id) {
-      // Update existing car (PUT)
-      await fetch(`${API_URL}/id/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ data: { Model: model, Price: price, ImageURL: image } })
-      });
-      alert("Car updated!");
-    } else {
-      // Add new car (POST)
-      await fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ data: { Model: model, Price: price, ImageURL: image } })
-      });
-      alert("Car added!");
+    if (!model || !price || !image) {
+      alert("Fill in all fields");
+      return;
     }
 
-    resetForm();
-    loadCars();
-  });
-
-  // Reset form to empty, hide cancel button
-  function resetForm() {
-    carForm.reset();
-    document.getElementById("carId").value = "";
-    cancelEditBtn.style.display = "none";
-    carForm.querySelector("button[type='submit']").textContent = "Add Car";
-  }
-
-  cancelEditBtn.addEventListener("click", resetForm);
-
-  // Handle Edit and Delete buttons click
-  carList.addEventListener("click", async (e) => {
-    if (e.target.classList.contains("btn-edit")) {
-      const id = e.target.dataset.id;
-      // Fetch single car data
-      const res = await fetch(`${API_URL}/id/${id}`);
-      const carData = await res.json();
-      const car = carData[0];
-      // Fill form with car data
-      document.getElementById("carId").value = id;
-      document.getElementById("model").value = car.Model;
-      document.getElementById("price").value = car.Price;
-      document.getElementById("image").value = car.ImageURL;
-      carForm.querySelector("button[type='submit']").textContent = "Update Car";
-      cancelEditBtn.style.display = "inline-block";
-
-    } else if (e.target.classList.contains("btn-delete")) {
-      const id = e.target.dataset.id;
-      if (confirm("Are you sure you want to delete this car?")) {
-        await fetch(`${API_URL}/id/${id}`, {
-          method: "DELETE"
+    const carId = carIdInput.value;
+    if (carId) {
+      // EDIT car
+      // Find the car to edit
+      const carToEdit = carsData.find(c => c.id === carId);
+      if (!carToEdit) {
+        alert("Car not found");
+        return;
+      }
+      if (carToEdit.OwnerEmail.toLowerCase() !== loggedInEmail.toLowerCase()) {
+        alert("You can only edit your own cars");
+        return;
+      }
+      // SheetDB update via PUT to /id/{carId}
+      try {
+        await fetch(`${CARS_API}/id/${carId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ data: { Model: model, Price: price, ImageURL: image, OwnerEmail: loggedInEmail } }),
         });
-        alert("Car deleted!");
+        alert("Car updated");
+        resetForm();
         loadCars();
+      } catch (e) {
+        alert("Error updating car");
+        console.error(e);
+      }
+    } else {
+      // ADD new car (POST)
+      try {
+        await fetch(CARS_API, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ data: { Model: model, Price: price, ImageURL: image, OwnerEmail: loggedInEmail } }),
+        });
+        alert("Car added");
+        resetForm();
+        loadCars();
+      } catch (e) {
+        alert("Error adding car");
+        console.error(e);
       }
     }
   });
 
-  // Load cars on page load
-  loadCars();
+  // Start editing a car: fill form with car data
+  function startEditCar(car) {
+    carIdInput.value = car.id;
+    modelInput.value = car.Model;
+    priceInput.value = car.Price;
+    imageInput.value = car.ImageURL;
+    carForm.querySelector("button[type=submit]").textContent = "Update Car";
+    cancelEditBtn.style.display = "inline-block";
+  }
+
+  cancelEditBtn.addEventListener("click", resetForm);
+
+  function resetForm() {
+    carIdInput.value = "";
+    modelInput.value = "";
+    priceInput.value = "";
+    imageInput.value = "";
+    carForm.querySelector("button[type=submit]").textContent = "Add Car";
+    cancelEditBtn.style.display = "none";
+  }
+
+  // Delete car
+  async function deleteCar(car) {
+    if (!confirm(`Delete "${car.Model}"?`)) return;
+    if (car.OwnerEmail.toLowerCase() !== loggedInEmail.toLowerCase()) {
+      alert("You can only delete your own cars");
+      return;
+    }
+    try {
+      await fetch(`${CARS_API}/id/${car.id}`, { method: "DELETE" });
+      alert("Car deleted");
+      loadCars();
+    } catch (e) {
+      alert("Error deleting car");
+      console.error(e);
+    }
+  }
 </script>
 
 </body>
